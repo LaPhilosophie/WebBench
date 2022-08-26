@@ -82,7 +82,7 @@ static void alarm_handler(int signal)
     timerexpired=1;
 }	
 
-static void usage(void)
+static void usage(void)//输出用法
 {
     fprintf(stderr,
             "webbench [option]... URL\n"
@@ -108,13 +108,14 @@ int main(int argc, char *argv[])
     int opt=0;
     int options_index=0;
     char *tmp=NULL;
-
+    
+    //如果命令行参数只有一个，跳到usage函数
     if(argc==1)
     {
         usage();
         return 2;
     } 
-
+    //通过getopt_long函数进行参数的获取，并设置变量
     while((opt=getopt_long(argc,argv,"912Vfrt:p:c:?h",long_options,&options_index))!=EOF )
     {
         switch(opt)
@@ -127,10 +128,10 @@ int main(int argc, char *argv[])
             case '2': http10=2;break;
             case 'V': printf(PROGRAM_VERSION"\n");exit(0);
             case 't': benchtime=atoi(optarg);break;	     
-            case 'p': 
+            case 'p': //如果是-p选项，optarg保存的是形如“server:port”的字符串
             /* proxy server parsing server:port */
-            tmp=strrchr(optarg,':');
-            proxyhost=optarg;
+            tmp=strrchr(optarg,':');//strrchr函数返回字符串中最后一次出现字符的位置
+            proxyhost=optarg;//"ip:port"
             if(tmp==NULL)
             {
                 break;
@@ -145,30 +146,30 @@ int main(int argc, char *argv[])
                 fprintf(stderr,"Error in option --proxy %s Port number is missing.\n",optarg);
                 return 2;
             }
-            *tmp='\0';
-            proxyport=atoi(tmp+1);break;
+            *tmp='\0';//将“:”替换为“\0”，切割ip和port
+            proxyport=atoi(tmp+1);break;//获取port
             case ':':
             case 'h':
             case '?': usage();return 2;break;
-            case 'c': clients=atoi(optarg);break;
+            case 'c': clients=atoi(optarg);break;//获取需要创建的客户端个数
         }
     }
-
+    //如果optind == argc，说明缺少url参数
     if(optind==argc) {
         fprintf(stderr,"webbench: Missing URL!\n");
         usage();
         return 2;
     }
 
-    if(clients==0) clients=1;
-    if(benchtime==0) benchtime=30;
+    if(clients==0) clients=1;//防止命令行中 -c 0从而出现bug
+    if(benchtime==0) benchtime=30;//防止命令行中 -t 0从而出现bug
  
     /* Copyright */
     fprintf(stderr,"Webbench - Simple Web Benchmark "PROGRAM_VERSION"\n"
             "Copyright (c) Radim Kolar 1997-2004, GPL Open Source Software.\n"
             );
  
-    build_request(argv[optind]);
+    build_request(argv[optind]);//将url传入build_request函数中
  
     // print request info ,do it in function build_request
     /*printf("Benchmarking: ");
@@ -212,9 +213,10 @@ int main(int argc, char *argv[])
     
     printf(".\n");
     
-    return bench();
+    return bench();//进入这个函数
 }
 
+//创建请求报文，存到request数组中
 void build_request(const char *url)
 {
     char tmp[10];
@@ -224,12 +226,17 @@ void build_request(const char *url)
     //bzero(request,REQUEST_SIZE);
     memset(host,0,MAXHOSTNAMELEN);
     memset(request,0,REQUEST_SIZE);
-
+    //由于http1.0或者1.2才支持一些特性，在此重新设置http协议头
     if(force_reload && proxyhost!=NULL && http10<1) http10=1;
     if(method==METHOD_HEAD && http10<1) http10=1;
     if(method==METHOD_OPTIONS && http10<2) http10=2;
     if(method==METHOD_TRACE && http10<2) http10=2;
-
+    //根据请求头进行跳转,封装后的报文类似：
+    /*
+    GET / HTTP/1.0
+    User-Agent: WebBench 1.5
+    Host: gls.show
+    */
     switch(method)
     {
         default:
@@ -239,9 +246,9 @@ void build_request(const char *url)
         case METHOD_TRACE: strcpy(request,"TRACE");break;
     }
 
-    strcat(request," ");
+    strcat(request," ");//strstr进行字符串的拼接
 
-    if(NULL==strstr(url,"://"))
+    if(NULL==strstr(url,"://"))//检查url中是否有://字符串
     {
         fprintf(stderr, "\n%s: is not a valid URL.\n",url);
         exit(2);
@@ -265,7 +272,7 @@ void build_request(const char *url)
         exit(2);
     }
     
-    if(proxyhost==NULL)
+    if(proxyhost==NULL)//未设置代理服务器
     {
         /* get port from hostname */
         if(index(url+i,':')!=NULL && index(url+i,':')<index(url+i,'/'))
@@ -275,7 +282,7 @@ void build_request(const char *url)
             memset(tmp,0,10);
             strncpy(tmp,index(url+i,':')+1,strchr(url+i,'/')-index(url+i,':')-1);
             /* printf("tmp=%s\n",tmp); */
-            proxyport=atoi(tmp);
+            proxyport=atoi(tmp);//解析出port
             if(proxyport==0) proxyport=80;
         } 
         else
@@ -296,7 +303,7 @@ void build_request(const char *url)
     else if (http10==2)
         strcat(request," HTTP/1.1");
   
-    strcat(request,"\r\n");
+    strcat(request,"\r\n");//CRLF
   
     if(http10>0)
         strcat(request,"User-Agent: WebBench "PROGRAM_VERSION"\r\n");
@@ -329,7 +336,7 @@ static int bench(void)
     FILE *f;
 
     /* check avaibility of target server */
-    i=Socket(proxyhost==NULL?host:proxyhost,proxyport);
+    i=Socket(proxyhost==NULL?host:proxyhost,proxyport);//socket函数在socket.c中已经写好
     if(i<0) { 
         fprintf(stderr,"\nConnect to server failed. Aborting benchmark.\n");
         return 1;
@@ -337,7 +344,7 @@ static int bench(void)
     close(i);
     
     /* create pipe */
-    if(pipe(mypipe))
+    if(pipe(mypipe))//创建管道+错误处理
     {
         perror("pipe failed.");
         return 3;
@@ -350,7 +357,7 @@ static int bench(void)
     while(time(NULL)==cas)
     sched_yield();
     */
-
+    //fork出进程，注意子进程由于break无法继续fork
     /* fork childs */
     for(i=0;i<clients;i++)
     {
@@ -359,7 +366,7 @@ static int bench(void)
         {
             /* child process or error*/
             sleep(1); /* make childs faster */
-            break;
+            break;//子进程直接跳出循环，从而fork出指定数量的进程，而非指数型产生进程
         }
     }
 
@@ -370,30 +377,30 @@ static int bench(void)
         return 3;
     }
 
-    if(pid == (pid_t) 0)
+    if(pid == (pid_t) 0)//子进程把数据通过管道传给父进程
     {
         /* I am a child */
         if(proxyhost==NULL)
-            benchcore(host,proxyport,request);
+            benchcore(host,proxyport,request);//调用benchcore
         else
             benchcore(proxyhost,proxyport,request);
 
         /* write results to pipe */
-        f=fdopen(mypipe[1],"w");
+        f=fdopen(mypipe[1],"w");//子进程进行写操作
         if(f==NULL)
         {
             perror("open pipe for writing failed.");
             return 3;
         }
         /* fprintf(stderr,"Child - %d %d\n",speed,failed); */
-        fprintf(f,"%d %d %d\n",speed,failed,bytes);
+        fprintf(f,"%d %d %d\n",speed,failed,bytes);//把speed、failed、bytes写到f
         fclose(f);
 
         return 0;
     } 
-    else
+    else//父进程操作
     {
-        f=fdopen(mypipe[0],"r");
+        f=fdopen(mypipe[0],"r");//读取子进程写入的数据
         if(f==NULL) 
         {
             perror("open pipe for reading failed.");
@@ -408,8 +415,8 @@ static int bench(void)
     
         while(1)
         {
-            pid=fscanf(f,"%d %d %d",&i,&j,&k);
-            if(pid<2)
+            pid=fscanf(f,"%d %d %d",&i,&j,&k);//把从f中读取的数据格式化到i j k，这三个分别对应speed、failed、bytes,fscanf为阻塞式函数
+            if(pid<2)//pid是fscanf函数的返回个数
             {
                 fprintf(stderr,"Some of our childrens died.\n");
                 break;
@@ -424,12 +431,12 @@ static int bench(void)
         }
     
         fclose(f);
-
+        //输出最终的数据结果
         printf("\nSpeed=%d pages/min, %d bytes/sec.\nRequests: %d susceed, %d failed.\n",
-            (int)((speed+failed)/(benchtime/60.0f)),
-            (int)(bytes/(float)benchtime),
-            speed,
-            failed);
+            (int)((speed+failed)/(benchtime/60.0f)),//一分钟内成功\失败的次数
+            (int)(bytes/(float)benchtime),//每秒传输的字节数
+            speed,//speed就是succeed的次数
+            failed);//失败次数
     }
     
     return i;
@@ -445,15 +452,15 @@ void benchcore(const char *host,const int port,const char *req)
     /* setup alarm signal handler */
     sa.sa_handler=alarm_handler;
     sa.sa_flags=0;
-    if(sigaction(SIGALRM,&sa,NULL))
+    if(sigaction(SIGALRM,&sa,NULL))//给信号绑定函数
         exit(3);
     
-    alarm(benchtime); // after benchtime,then exit
+    alarm(benchtime); // after benchtime,then exit  在这里开始计时
 
-    rlen=strlen(req);
-    nexttry:while(1)
+    rlen=strlen(req);//包的长度
+    nexttry:while(1)//在收到信号前无限循环
     {
-        if(timerexpired)
+        if(timerexpired)//每次循环都测试是否到时间
         {
             if(failed>0)
             {
@@ -462,13 +469,13 @@ void benchcore(const char *host,const int port,const char *req)
             }
             return;
         }
-        
-        s=Socket(host,port);                          
+        //failed：socket建立失败、写数据失败、读取数据失败
+        s=Socket(host,port);    
         if(s<0) { failed++;continue;} 
         if(rlen!=write(s,req,rlen)) {failed++;close(s);continue;}
         if(http10==0) 
         if(shutdown(s,1)) { failed++;close(s);continue;}
-        if(force==0) 
+        if(force==0) //接受数据，force默认为0
         {
             /* read all available data from socket */
             while(1)
@@ -476,19 +483,19 @@ void benchcore(const char *host,const int port,const char *req)
                 if(timerexpired) break; 
                 i=read(s,buf,1500);
                 /* fprintf(stderr,"%d\n",i); */
-                if(i<0) 
+                if(i<0) //读取数据失败
                 { 
                     failed++;
                     close(s);
-                    goto nexttry;
+                    goto nexttry;//重新进入最外层while循环
                 }
                 else
                 if(i==0) break;
                 else
-                bytes+=i;
+                bytes+=i;//接受到的数据
             }
         }
         if(close(s)) {failed++;continue;}
-        speed++;
+        speed++;//如果能执行至此，speed+1
     }
 }
